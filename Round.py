@@ -1,8 +1,7 @@
 from Deck import Deck
-
 class Round:
     def __init__(self, players):
-        self.players = players #Esto nos mostrará una lista con los nombres de los jugadores en la partida
+        self.players = players
         self.hands = {player: [] for player in players} #Creamos un diccionario que contendrá las manos de cada jugador, donde la clave es el nombre del jugador y el valor es una lista vacía que contendrá las cartas de ese jugador
         self.deck = None #Inicializamos el mazo como None, ya que aún no lo hemos creado
         self.tableDeck = [] #Esto será el mazo que estará en la mesa, donde se colocarán las cartas boca abajo que los jugadores podrán tomar
@@ -11,7 +10,7 @@ class Round:
     def initDeck(self):
         numOfPlayers = len(self.players) #Mostrará el número de jugadores
         numOfDecks = 1 #Por defecto, se usará 1 mazo
-        if numOfPlayers > 4 and numOfPlayers <= 6:
+        if numOfPlayers >= 4 and numOfPlayers <= 6:
             numOfDecks = 2
         elif numOfPlayers > 6:  #Estos condicionales son para utilizar mazos de acuerdo a la cantidad de jugadores
             numOfDecks = 3
@@ -32,9 +31,6 @@ class Round:
     
     def showInitialState(self):
         print("ESTADO INICIAL DE LA RONDA")
-        for player in self.players: #Significado del ciclo: Por cada jugador dentro de la lista de jugadores
-            cards = ", ".join(str(card) for card in self.hands[player]) 
-            print(f"{player}: {cards}") #Esta línea nos muestra la lista de cartas de cada jugador en la terminal
         print(f"\nPrimer descarte: {self.discards[-1]}") #Mostramos la primera carta del montón de descartes
         print(f"Cartas restantes en el montón: {len(self.pile)}") #Se muestra la cantidad de cartas restantes en el montón, sin que estas sean reveladas (seguirán boca abajo)
 
