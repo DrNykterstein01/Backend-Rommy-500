@@ -12,56 +12,58 @@ class Player:
         self.playerHand = [] #Lista que contendrá las cartas del jugador.
         self.playerCardsPos = {} #Atributo experimental, para conocer la posición de cada carta lógica.
         self.playerCardsSelect = [] #Atributo experimental, para guardar las cartas selecc. para un movimiento.
-        self.downHand = False
+        self.playerCardsToEx = []   # Atrib. exp., para guardar cartas para intercambiar posiciones.
+        self.playMade = []
+        self.downHand = False #Este atributo nos indica si el jugador ya se bajó o no, mostrando True o False respectivamente
         #self.playerBuy = False
         self.playerPass = False #Atrib. experimental, para saber si pasó de la carta descartada.
 
+    # Mét. para permitir que el jugador seleccione cartas para jugar.
     def chooseCard(self, clickPos):
         
-        #Creamos un bucle para recorrer los índices de las cartas en la mano del jugador. 
-        for c in range(len(self.playerHand)):
-
-            #Verificamos si hay un click sobre una carta que no ha sido seleccionada previamente.
-            #NOTA: La posición de cada carta física está asociada con el índice de la carta lógica
-            #      en la mano del jugador. De esta forma, se evitan problemas si hay cartas repetidas.
-            
-            #"Si el jugador hizo click en un rectángulo, y la carta lógica asociada al índice del rectán.
-            #no está entre las seleccionadas..."
-            if self.playerCardsPos[c].collidepoint(clickPos) and self.playerHand[c] not in self.playerCardsSelect:
-                card = self.playerHand[c]
-                print(f"Carta marcada: {card}")
+        # Para cada carta en la mano del jugador, verificamos si se hace click en el rectángulo asociado
+        # a una carta específica y si dicha carta ha sido previamente seleccionada.
+        # Si la carta no está en la lista de seleccionadas, la incluimos; si resulta que está entre las
+        # seleccionadas y se vuelve a hacer click en ella, la eliminamos de la lista.
+        # NOTA: Con la inclusión de un ID a cada carta este proceso se simplifica, ya que las coincidencias
+        #       sólo pueden darse entre cartas con un mismo valor para todos sus atributos.
+        for card in self.playerHand:
+            if self.playerCardsPos[card].collidepoint(clickPos) and card not in self.playerCardsSelect:
+                print(f"Carta marcada: {card}{card.id}")
                 self.playerCardsSelect.append(card)
-            #Verificamos si hay un click sobre una carta que ya ha sido seleccionada previamente.
-            #NOTA: En este condicional verificamos qué carta seleccionó el jugador, en caso de que
-            #      tenga dos o más cartas iguales en su mano.
-            elif self.playerCardsPos[c].collidepoint(clickPos) and self.playerHand[c] in self.playerCardsSelect:
-                card = self.playerHand[c] #Guardamos la carta asociada a la posición en que clickeó.
+            elif self.playerCardsPos[card].collidepoint(clickPos) and card in self.playerCardsSelect:
+                print(f"Carta desmarcada: {card}{card.id}")
+                self.playerCardsSelect.remove(card)
 
-                countsOcurSelec = self.playerCardsSelect.count(card)          #Contamos las ocurrencias de dicha carta en las seleccionadas.
-                countsOcurHand = self.playerHand.count(card)                  #Contamos las ocurrencias de dicha carta en la mano del jugador.
-                if countsOcurSelec != countsOcurHand:                         #Si los conteos son distintos, entonces el jugador tiene repetida la carta.
-                    indexOcur = 0                                             #Var. de control para buscar el índice de la carta en la mano del jugador.
-                    sameIndex = False                                         #Var. de control para saber si el jugador clickeó el mismo índice.
-                    for i in range(countsOcurSelec):                          #Bucle para cada una de las ocurrencias de la carta entre las seleccionadas.
-                        indexOcur = self.playerHand.index(card, indexOcur,-1) #Identificamos el índice de la primera ocurrencia en la mano del jugador (desde el índice de indexOcur hasta el último).
-                        if c == indexOcur:                                    #Verificamos si el índice clickeado corresponde al de la primera ocurrencia.
-                            sameIndex = True                                  #Si los índices coinciden, el jugador clickeó en una misma posición dos veces (una misma carta).
-                        else:
-                            indexOcur += 1
+    # Mét. para permitir al jugador intercambiar el lugar de sus cartas para que pueda ordenarlas.
+    # Trabaja casi igual que chooseCard(), pero almacena dos cartas a lo mucho.
+    def exchangeCard(self, clickPos):
+        for card in self.playerHand:
+            if self.playerCardsPos[card].collidepoint(clickPos) and card not in self.playerCardsToEx:
+                print(f"Carta marcada para intercambiar: {card}{card.id}")
+                self.playerCardsToEx.append(card)
+            elif self.playerCardsPos[card].collidepoint(clickPos) and card in self.playerCardsToEx:
+                print(f"Carta desmarcada para intercambiar: {card}{card.id}")
+                self.playerCardsToEx.remove(card)
 
-                            #Si los índices son distintos y aún quedan ocurrencias en las seleccionadas, reanudamos la búsqueda del índice
-                            #de la siguiente ocurrencia de la carta partiendo del índice siguiente al de la ocurrencia previa (por eso indexOcur += 1).
+        # Si el jugador marca dos cartas para intercambiar (con el click derecho)...
+        if len(self.playerCardsToEx) == 2:
+                
+                # Tomamos la posición de cada carta en la mano del jugador.
+                IndexFirstCard = self.playerHand.index(self.playerCardsToEx[0])
+                IndexSecondCard = self.playerHand.index(self.playerCardsToEx[1])
 
-                    if sameIndex:                                             #Si resulta que el jugador clickeó dos veces en el mismo índice (posición)...
-                        print(f"Carta desmarcada: {card}")
-                        self.playerCardsSelect.remove(card)                   #Eliminamos las cartas de las seleccionadas.
-                    else:
-                        print(f"Carta marcada: {card}")                       #Si el jugador no hizo click en la misma posición, está marcando otra carta con el mismo valor.
-                        self.playerCardsSelect.append(card)                   #Añadimos la carta a las seleccionadas.
-                else:
-                    print(f"Carta desmarcada: {card}")
-                    self.playerCardsSelect.remove(card)                       #Si el conteo inicial de ocurrencias es el mismo en ambas listas, no hay repeticiones de la carta; por tanto, la eliminamos.
+                # Tomamos las cartas asociadas a cada posición.
+                firstCard = self.playerHand[IndexFirstCard]
+                secondCard = self.playerHand[IndexSecondCard]
 
+                # Intercambiamos posiciones en la mano del jugador.
+                self.playerHand[IndexFirstCard] = secondCard
+                self.playerHand[IndexSecondCard] = firstCard
+
+                # Limpiamos la lista de intercambio para reiniciar el proceso.
+                self.playerCardsToEx.clear()    
+                
     def takeCard(self, card): #Esto solo agregará la carta a la playerHand del jugador, independientemente de si la toma del mazo o del descarte (eso se manejará en otro archivo)
         self.playerHand.append(card)
         
@@ -129,16 +131,57 @@ class Player:
                 print(f"   Opción {i}:")
                 print(f"     Trío -> {[str(c) for c in combo['trio']]}")
                 print(f"     Seguidilla -> {[str(c) for c in combo['straight']]}")
-            return True, valid_combos
+            return valid_combos
         else:
             print(f"\n❌ El jugador {self.playerName} NO se puede bajar aún.")
-            return False, []
+            return None
         #NOTA: Al final, tengo pensado que para que un jugador se pueda bajar, deba organizar su jugada
         #de tal manera que la combinación de cartas que va a bajar coincida con alguna de las combinaciones
         #que retorna este método canGetOff().
 
-                
-    
+    def getOff(self):
+        combinations = self.canGetOff()
+        availableTrios = [combo["trio"] for combo in combinations] if combinations != None else [] #Esto nos crea una lista con todas las combinaciones de tríos disponibles
+        prepareTrio = []
+        availableStraights = [combo["straight"] for combo in combinations] if combinations != None else [] #Nos crea una lista con todas las combinaciones de seguidillas válidas disponibles
+        prepareStraight = []
+        chosenCards = self.playerCardsSelect
+
+        if not chosenCards:
+            print("El jugador aún no ha seleccionado cartas")
+            return None
+
+        if len(chosenCards) >= 7: #CORREGIR LO QUE ESTÁ EN ESTE BUCLE
+            for trio in availableTrios: #Esto nos crea una lista con todas las cartas que se van a descartar
+                for straight in availableStraights:
+                    for card in chosenCards:
+                        if card in trio and card in self.playerHand and card not in prepareTrio:
+                            prepareTrio.append(card)
+                        elif card in straight and card in self.playerHand and card not in prepareStraight:
+                            prepareStraight.append(card)
+                        #elif card not in trio and card not in straight and card in self.playerHand:
+                            #print("Carta no disponible para el trío o la seguidilla")
+                    #print(f"Cartas de la seguidilla: {[str(c) for c in prepareStraight]}")
+                    #print(f"Cartas del trío: {[str(c) for c in prepareTrio]}")
+            if any(card not in prepareTrio and card not in prepareStraight for card in chosenCards):
+                print("Alguna de las cartas seleccionadas no se encuentra en el trío o en la seguidilla")
+            if self.downHand:
+                print("El jugador ya se bajó en esta ronda. No puede volver a bajarse")
+            else:
+                if len(prepareTrio) >= 3 and len(prepareStraight) >= 4 and len(chosenCards) >= 7 and any(prepareStraight == straight for straight in availableStraights):
+                    self.playMade.append({"trio": prepareTrio, "straight": prepareStraight})
+                    for card in prepareTrio:
+                        self.playerHand.remove(card)
+                    for card in prepareStraight:
+                        self.playerHand.remove(card)
+                    self.downHand = True
+                    print(f"El jugador {self.playerName} se bajó con: \n     Trío -> {[str(c) for c in prepareTrio]}\n     Seguidilla -> {[str(c) for c in prepareStraight]}")
+                    return prepareTrio, prepareStraight
+
+
+        elif len(chosenCards) < 7:
+            print(f"Se han seleccionado {len(chosenCards)} cartas, no son suficientes aún.")
+        
     def findTrios(self):
         #Se utilizará para identificar tríos en la mano del jugador.
         trios = [] #Lista para almacenar los tríos encontrados en la mano del jugador
@@ -156,19 +199,34 @@ class Player:
                 cardsPerValue["Joker"] = []
             cardsPerValue["Joker"].append(card)
         for value, cards in cardsPerValue.items():
-            if len(cards) >= 3: 
-                trios.append(cards) #Si hay al menos 3 cartas del mismo valor (sin jokers), las añadimos a la lista de tríos
-            elif len(cards) >= 3 and len(jokers) >= 1:
-                trios.append(cards + [jokers[0]]) 
-            elif len(cards) == 2 and len(jokers) >= 1 :
-                trios.append(cards + [jokers[0]]) #Si hay 2 cartas del mismo valor y 1 joker, las añadimos a la lista de tríos
+            createTrio = []
+            if len(cards) >= 3:
+                createTrio = cards #Si hay al menos 3 cartas del mismo valor (sin jokers), las añadimos a la lista de tríos
+                trios.append(createTrio)
+            if len(cards) >= 3 and len(jokers) >= 1:
+                createTrio = cards + [jokers[0]] 
+                trios.append(createTrio)
+            elif len(cards) == 2 and len(jokers) >= 1:
+                createTrio = cards + [jokers[0]]  #Si hay 2 cartas del mismo valor y 1 joker, las añadimos a la lista de tríos
+                trios.append(createTrio)
         validTrios = []
         for trio in trios: #Regla para que no haya más de un joker por trío
             jokerQuantity = sum(1 for card in trio if card.joker)
-            if jokerQuantity <= 1:
+            if jokerQuantity <= 1 and len(trio) >= 3:
                 validTrios.append(trio)
-            elif jokerQuantity == 1:
-                validTrios.append(trio)
+                if len(trio) >= 4:
+                    for c in range(len(trio)):
+                        newTrio = [card for card in trio if card != trio[c]]
+                        if len(newTrio) >= 3:
+                            validTrios.append(newTrio)
+                            if len(newTrio) >= 4:
+                                for c2 in range(len(newTrio)):
+                                    newTrio2 = [card for card in newTrio if card != newTrio[c2]]
+                                    if len(newTrio2) >= 3:
+                                        validTrios.append(newTrio2)
+            #elif jokerQuantity == 1:
+             #   validTrios.append(trio)
+
         return validTrios
     
     def findStraight(self, highAsMode=False):
@@ -282,6 +340,9 @@ class Player:
         def isConsecutive(c1, c2, highAs):
             return rank(c2, highAs) - rank(c1, highAs) == 1
 
+        def isConsecutiveWithJokers(c1, c2, highAs):
+            return rank(c2, highAs) - rank(c1, highAs) == 2
+
         #Con el siguiente ciclo, recorremos todos los palos y las secuencias que puedan formarse con ellos
         for palo, cartas in palos.items():
             if not cartas:
@@ -301,9 +362,14 @@ class Player:
                 for i in range(1, len(sortedCards)):
                     prev = sortedCards[i - 1]
                     curr = sortedCards[i]
+                    usedJokers = sum(1 for card in currentSequence if getattr(card, "joker", False))
 
                     #Caso A->2, que es manejado por rank() cuando highMode = False
                     if isConsecutive(prev, curr, highMode):
+                        currentSequence.append(curr)
+                    elif isConsecutiveWithJokers(prev, curr, highMode) and usedJokers < len(jokers):
+                        currentSequence.append(jokers[usedJokers])
+                        jokers.remove(jokers[usedJokers])
                         currentSequence.append(curr)
                         
                     else:
@@ -339,10 +405,205 @@ class Player:
         return straights
 
 
+    def insertCard(self, targetPlayer, targetPlayIndex, cardToInsert, position=None):
+        """
+        Inserta una carta en targetPlayer.playMade[targetPlayIndex].
+        position: 'start', 'end' o None para sustitución de Joker.
+        Requisitos: self.downHand == True y cardToInsert in self.playerHand
+        """
 
-    def insertCard(self, idPlayer): #Aún no tengo en claro si lo mejor sea utilizar el idPlayer como parámetro o colocar otra cosa en su lugar
-        if self.downHand == True:
-            #Aquí se implementaría la lógica para agregar una carta en la jugada de otro jugador
-            pass
+        # 1) Validaciones básicas
+        if not self.downHand:
+            print(f"❌ {self.playerName} no puede insertar cartas: aún no se ha bajado.")
+            return False
+
+        if cardToInsert not in self.playerHand:
+            print(f"❌ {self.playerName} no tiene la carta {cardToInsert} en su mano.")
+            return False
+
+        if targetPlayIndex < 0 or targetPlayIndex >= len(targetPlayer.playMade):
+            print("❌ El índice dado para la jugada objetivo es inválido.")
+            return False
+
+        targetPlay = targetPlayer.playMade[targetPlayIndex]
+        temporalPlay = targetPlay.copy()
+
+        # Mapa para ranks (A tratado luego según modo)
+        valueToRank = {
+            "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7,
+            "8": 8, "9": 9, "10": 10, "J": 11, "Q": 12, "K": 13
+        }
+
+        def isJoker(c):
+            return getattr(c, "joker", False)
+
+        # ---------- Validación TRÍO ----------
+        def isValidTrio(play):
+            # Un trío debe tener exactamente 3 cartas (o 3 con 1 Joker)
+            if len(play) < 3:
+                return False
+            jokers = [c for c in play if isJoker(c)]
+            nonJokers = [c for c in play if not isJoker(c)]
+            # Regla: no más de 1 joker en trío
+            if len(jokers) > 1:
+                return False
+            if len(nonJokers) == 0:
+                return False
+            values = [c.value for c in nonJokers]
+            return len(set(values)) == 1
+
+        # ---------- Validación SEGUIDILLA ----------
+        def isValidStraight(play):
+            # Debe tener al menos 4 cartas totales
+            if len(play) < 4:
+                return False
+
+            # No permitir jokers adyacentes
+            for i in range(len(play) - 1):
+                if isJoker(play[i]) and isJoker(play[i + 1]):
+                    return False
+
+            # Validar palos (los no-jokers deben pertenecer al mismo palo)
+            suits = [c.type for c in play if not isJoker(c)]
+            if len(suits) == 0:
+                return False
+            if len(set(suits)) > 1:
+                return False
+
+            # Intentaremos ambos modos: As como bajo (A=1) y As como alto (A=14)
+            for highAs in (False, True):
+                # Construir lista de ranks (None para jokers)
+                ranks = []
+                okMode = True #
+                for c in play:
+                    if isJoker(c):
+                        ranks.append(None)
+                    else:
+                        if c.value == "A":
+                            r = 14 if highAs else 1
+                        else:
+                            if c.value not in valueToRank:
+                                okMode = False
+                                break
+                            r = valueToRank[c.value]
+                        ranks.append(r)
+                if not okMode:
+                    continue
+
+                # Debe haber al menos un non-joker para fijar la base
+                nonIndex = [i for i, r in enumerate(ranks) if r is not None]
+                if not nonIndex:
+                    continue
+
+                # Calcular el "base" candidato: r - pos para cada non-joker
+                baseSet = set(ranks[i] - i for i in nonIndex)
+                if len(baseSet) != 1:
+                    continue
+                base = baseSet.pop()
+
+                # Comprobar que los expected ranks estén en 1..14 y coincidan con non-jokers
+                expectedOk = True
+                for pos, r in enumerate(ranks):
+                    expected = base + pos
+                    if expected < 1 or expected > 14:
+                        expectedOk = False
+                        break
+                    if r is not None and r != expected:
+                        expectedOk = False
+                        break
+                if not expectedOk:
+                    continue
+
+                # Reglas específicas con As:
+                # Si hay un As en play:
+                for i, c in enumerate(play):
+                    if not isJoker(c) and c.value == "A":
+                        # As como bajo: no debe haber ningún Joker antes de esa A
+                        if not highAs:
+                            if any(isJoker(play[j]) for j in range(0, i)):
+                                expectedOk = False
+                                break
+                        # As como alto: no debe haber ningún Joker después de esa A
+                        else:
+                            if any(isJoker(play[j]) for j in range(i + 1, len(play))):
+                                expectedOk = False
+                                break
+                if not expectedOk:
+                    continue
+
+                # Si llegamos hasta aquí, el modo es válido => la secuencia es válida
+                return True
+
+            # Ningún modo válido
+            return False
+
+        # ---------- Detectar si la jugada objetivo "parece" trío ----------
+        def isTrioLike(play):
+            # heurística: si la mayoría de cartas no-joker comparten valor y longitud <= 4
+            nonJokers = [c for c in play if not isJoker(c)]
+            if not nonJokers:
+                return False
+            values = [c.value for c in nonJokers]
+            return len(play) <= 4 and len(set(values)) == 1
+
+        isTrioTarget = isTrioLike(targetPlay)
+
+        # ---------- Simular la operación ----------
+        if position is None:
+            # sustitución: buscar primer Joker
+            jokerIndex = next((i for i, c in enumerate(temporalPlay) if isJoker(c)), None)
+            if jokerIndex is None:
+                print("❌ No hay Joker para sustituir en esta jugada.")
+                return False
+            temporalPlay[jokerIndex] = cardToInsert
+        elif position == "start":
+            temporalPlay.insert(0, cardToInsert)
+        elif position == "end":
+            temporalPlay.append(cardToInsert)
         else:
-            print("No se puede insertar una carta porque el jugador no se ha bajado.") #Esto se cambiará por una alerta visual más adelante, pero de momento no nos preocupemos por lo visual :3
+            print("❌ Posición inválida. Usa 'start', 'end' o None.")
+            return False
+
+        # ---------- Validar la jugada simulada (sin depender de findStraight/findTrios) ----------
+        if isTrioTarget:
+            valid = isValidTrio(temporalPlay)
+        else:
+            valid = isValidStraight(temporalPlay)
+
+        if not valid:
+            if isTrioTarget:
+                print("❌ La sustitución/inserción rompe el trío: operación rechazada.")
+            else:
+                print("❌ La carta no puede insertarse: la seguidilla resultante no es válida.")
+            return False
+
+        # ---------- Aplicar cambios reales ----------
+        if position is None:
+            # Reemplazar el Joker real y devolver esa instancia de Joker a la mano del que inserta
+            jokerIndexReal = next((i for i, c in enumerate(targetPlay) if isJoker(c)), None)
+            if jokerIndexReal is None:
+                print("❌ (race) No hay Joker real para sustituir.")
+                return False
+            replacedJoker = targetPlay[jokerIndexReal]
+            targetPlay[jokerIndexReal] = cardToInsert
+            # quitar carta del que inserta y devolver el Joker real a su mano
+            self.playerHand.remove(cardToInsert)
+            self.playerHand.append(replacedJoker)
+            print(f"🔄 {self.playerName} sustituyó un Joker con {cardToInsert} (Joker -> mano).")
+            return True
+        else:
+            # Insert real al inicio o final
+            if position == "start":
+                targetPlay.insert(0, cardToInsert)
+                print(f"⬅️ {self.playerName} agregó {cardToInsert} al inicio de la jugada.")
+            else:
+                targetPlay.append(cardToInsert)
+                print(f"➡️ {self.playerName} agregó {cardToInsert} al final de la jugada.")
+            self.playerHand.remove(cardToInsert)
+            return True
+
+    # Mét. para cambiar el valor de "playerPass" para saber si, en un turno dado, pasó de la carta del
+    # descarte y agarró del mazo de disponibles. Servirá para la compra de cartas de los siguientes
+    # jugadores.
+    def passCard(self):
+        self.playerPass = not self.playerPass
