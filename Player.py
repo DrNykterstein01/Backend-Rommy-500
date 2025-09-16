@@ -1,6 +1,7 @@
 import pygame
 from Round import Round
 from Card import Card
+from itertools import combinations
 class Player:
 
     def __init__(self, id, name):
@@ -127,10 +128,10 @@ class Player:
 
         if valid_combos:
             print(f"\n✅ El jugador {self.playerName} SI SE PUEDE BAJAR con {len(valid_combos)} combinación(es):")
-            for i, combo in enumerate(valid_combos, 1): #Simplemente nos imprime en pantalla las combinaciones disponibles en la mano del jugador
+            for i, combination in enumerate(valid_combos, 1): #Simplemente nos imprime en pantalla las combinaciones disponibles en la mano del jugador
                 print(f"   Opción {i}:")
-                print(f"     Trío -> {[str(c) for c in combo['trio']]}")
-                print(f"     Seguidilla -> {[str(c) for c in combo['straight']]}")
+                print(f"     Trío -> {[str(c) for c in combination['trio']]}")
+                print(f"     Seguidilla -> {[str(c) for c in combination['straight']]}")
             return valid_combos
         else:
             print(f"\n❌ El jugador {self.playerName} NO se puede bajar aún.")
@@ -141,9 +142,9 @@ class Player:
 
     def getOff(self):
         combinations = self.canGetOff()
-        availableTrios = [combo["trio"] for combo in combinations] if combinations != None else [] #Esto nos crea una lista con todas las combinaciones de tríos disponibles
+        availableTrios = [combination["trio"] for combination in combinations] if combinations != None else [] #Esto nos crea una lista con todas las combinaciones de tríos disponibles
         prepareTrio = []
-        availableStraights = [combo["straight"] for combo in combinations] if combinations != None else [] #Nos crea una lista con todas las combinaciones de seguidillas válidas disponibles
+        availableStraights = [combination["straight"] for combination in combinations] if combinations != None else [] #Nos crea una lista con todas las combinaciones de seguidillas válidas disponibles
         prepareStraight = []
         chosenCards = self.playerCardsSelect
 
@@ -181,53 +182,49 @@ class Player:
 
         elif len(chosenCards) < 7:
             print(f"Se han seleccionado {len(chosenCards)} cartas, no son suficientes aún.")
-        
+
     def findTrios(self):
-        #Se utilizará para identificar tríos en la mano del jugador.
-        trios = [] #Lista para almacenar los tríos encontrados en la mano del jugador
-        cardsPerValue = {} #Diccionario para almacenar las cartas por valor
-        jokers = [] #Cartas jokers
+        trios = []  #Esta lista va a almacenar todos los tríos posibles en la mano del jugador
+        cardsPerValue = {}  #Diccionario para almacenar las cartas por valor
+        jokers = []  #Jokers que hay en la mano del jugador
+
+        #Clasificamos las cartas en normales y jokers
         for card in self.playerHand:
-            if card.joker: #Si la carta es un joker, la añadimos a la lista de jokers
+            if card.joker:
                 jokers.append(card)
             else:
-                if card.value not in cardsPerValue: #Si el valor de la carta no se encuentra en el diccionario, lo creamos
+                if card.value not in cardsPerValue:
                     cardsPerValue[card.value] = []
-                cardsPerValue[card.value].append(card) #Añadimos la carta a la lista correspondiente en el diccionario
-        for card in jokers:
-            if "Joker" not in cardsPerValue:
-                cardsPerValue["Joker"] = []
-            cardsPerValue["Joker"].append(card)
-        for value, cards in cardsPerValue.items():
-            createTrio = []
-            if len(cards) >= 3:
-                createTrio = cards #Si hay al menos 3 cartas del mismo valor (sin jokers), las añadimos a la lista de tríos
-                trios.append(createTrio)
-            if len(cards) >= 3 and len(jokers) >= 1:
-                createTrio = cards + [jokers[0]] 
-                trios.append(createTrio)
-            elif len(cards) == 2 and len(jokers) >= 1:
-                createTrio = cards + [jokers[0]]  #Si hay 2 cartas del mismo valor y 1 joker, las añadimos a la lista de tríos
-                trios.append(createTrio)
-        validTrios = []
-        for trio in trios: #Regla para que no haya más de un joker por trío
-            jokerQuantity = sum(1 for card in trio if card.joker)
-            if jokerQuantity <= 1 and len(trio) >= 3:
-                validTrios.append(trio)
-                if len(trio) >= 4:
-                    for c in range(len(trio)):
-                        newTrio = [card for card in trio if card != trio[c]]
-                        if len(newTrio) >= 3:
-                            validTrios.append(newTrio)
-                            if len(newTrio) >= 4:
-                                for c2 in range(len(newTrio)):
-                                    newTrio2 = [card for card in newTrio if card != newTrio[c2]]
-                                    if len(newTrio2) >= 3:
-                                        validTrios.append(newTrio2)
-            #elif jokerQuantity == 1:
-             #   validTrios.append(trio)
+                cardsPerValue[card.value].append(card)
 
-        return validTrios
+        #Incluimos los jokers como valor especial para más adelante hacer combinaciones
+        if jokers:
+            cardsPerValue["Joker"] = jokers
+
+        #A partir de aquí comenzamos a generar posibles tríos, partiendo de los grupos de cartas en el diccionario
+        for value, cards in cardsPerValue.items():
+            if value == "Joker":
+                continue  #No se pueden formar tríos solo con jokers
+
+            totalCards = cards.copy()  #Creamos una copia de las cartas (con su valor) para no modificar la original
+            if jokers:
+                totalCards += jokers  #Añadimos los jokers a la lista temporal
+
+            #Creamos todas las combinaciones de tamaño 3 o más (independientemente de la cantidad de cartas
+            #del mismo valor que tenga el jugador en su mano)
+            for size in range(3, len(totalCards) + 1):
+                for combination in combinations(totalCards, size):
+                    jokerCount = sum(1 for c in combination if c.joker)
+
+                    # Restricción: máximo 1 Joker por trío
+                    if jokerCount <= 1:
+                        # Evitar duplicados
+                        sortedCombo = sorted(combination, key=lambda c: (c.joker, c.value, c.type))
+                        if sortedCombo not in trios:
+                            trios.append(sortedCombo)
+
+        return trios
+
     
     def findStraight(self, highAsMode=False):
         straights = []
