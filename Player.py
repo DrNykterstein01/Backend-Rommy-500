@@ -1,5 +1,6 @@
 import pygame
 from Round import Round
+from Turn import drawCard
 from Card import Card
 from itertools import combinations
 class Player:
@@ -8,16 +9,18 @@ class Player:
         self.playerId = id
         self.playerName = name
         self.playerPoints = 0
-        self.Hand = False
-        self.playerTurn = False
+        self.isHand = False #Esto nos indica si el jugador es mano o no, o en otras palabras, si está en turno
+        self.playerTurn = False #Este turno se utilizará para determinar si el jugador está en su turno para comprar la carta
         self.playerHand = [] #Lista que contendrá las cartas del jugador.
         self.playerCardsPos = {} #Atributo experimental, para conocer la posición de cada carta lógica.
         self.playerCardsSelect = [] #Atributo experimental, para guardar las cartas selecc. para un movimiento.
         self.playerCardsToEx = []   # Atrib. exp., para guardar cartas para intercambiar posiciones.
-        self.playMade = []
+        self.playMade = [] #Este array nos guarda la jugada hecha al momento de bajarse. Esta se actualiza en getOff()
         self.downHand = False #Este atributo nos indica si el jugador ya se bajó o no, mostrando True o False respectivamente
-        #self.playerBuy = False
-        self.playerPass = False #Atrib. experimental, para saber si pasó de la carta descartada.
+        self.playerBuy = False #Este atributo nos indica si el jugador decidió comprar la carta o no
+        self.playerPass = False #Atrib. experimental, para saber si el jugador en turno pasó de la carta descartada.
+        self.points = 0 #Aquí se guardarán los puntos del jugador
+        self.winner = False #Nos permitirá saber si el jugador fue el ganador
 
     # Mét. para permitir que el jugador seleccione cartas para jugar.
     def chooseCard(self, clickPos):
@@ -98,6 +101,7 @@ class Player:
 
             cardDiscarted = self.playerCardsSelect.pop()
             self.playerHand.remove(cardDiscarted)
+            self.isHand = False
 
             return [cardDiscarted]
         #Si el jugador no seleccionó ninguna carta, retornamos None.
@@ -140,48 +144,78 @@ class Player:
         #de tal manera que la combinación de cartas que va a bajar coincida con alguna de las combinaciones
         #que retorna este método canGetOff().
 
-    def getOff(self):
+    def getOff(self, visualStraight, visualTrio):
+        """Con este método, el jugador podrá bajarse.
+        Tengamos en cuenta que:
+        +visualTrio corresponde a las cartas colocadas en la zona de tríos de la interfaz
+        +visualStraight corresponde, por su parte, a las cartas de la zona de seguidillas dentro de la interfaz"""
         combinations = self.canGetOff()
         availableTrios = [combination["trio"] for combination in combinations] if combinations != None else [] #Esto nos crea una lista con todas las combinaciones de tríos disponibles
         prepareTrio = []
+        jokersInTrio = sum(1 for c in visualTrio if c.joker)
         availableStraights = [combination["straight"] for combination in combinations] if combinations != None else [] #Nos crea una lista con todas las combinaciones de seguidillas válidas disponibles
         prepareStraight = []
-        chosenCards = self.playerCardsSelect
-
+        chosenCards = visualTrio + visualStraight #Esta lista contendrá las cartas que el jugador ha seleccionado para bajarse
         if not chosenCards:
             print("El jugador aún no ha seleccionado cartas")
             return None
-
-        if len(chosenCards) >= 7: #CORREGIR LO QUE ESTÁ EN ESTE BUCLE
+        if len(chosenCards) >= 7:
             for trio in availableTrios: #Esto nos crea una lista con todas las cartas que se van a descartar
                 for straight in availableStraights:
                     for card in chosenCards:
-                        if card in trio and card in self.playerHand and card not in prepareTrio:
+                        #Agregamos cartas al posible trío y seguidilla dependiendo de si 
+                        #están en la mano del jugador y si coinciden con alguna carta del trío o seguidilla válidos
+                        if card in trio and card in self.playerHand and card not in prepareTrio and card in visualTrio:
                             prepareTrio.append(card)
-                        elif card in straight and card in self.playerHand and card not in prepareStraight:
+                        elif card in straight and card in self.playerHand and card not in prepareStraight and card in visualStraight:
                             prepareStraight.append(card)
-                        #elif card not in trio and card not in straight and card in self.playerHand:
-                            #print("Carta no disponible para el trío o la seguidilla")
-                    #print(f"Cartas de la seguidilla: {[str(c) for c in prepareStraight]}")
-                    #print(f"Cartas del trío: {[str(c) for c in prepareTrio]}")
+            #Si existe alguna carta en el trío o en la seguidilla que no estén dentro de alguna jugada válida
             if any(card not in prepareTrio and card not in prepareStraight for card in chosenCards):
                 print("Alguna de las cartas seleccionadas no se encuentra en el trío o en la seguidilla")
-            if self.downHand:
+                return None
+            #Si el jugador ya se bajó, no le permitimos que lo vuelva a hacer
+            elif self.downHand:
                 print("El jugador ya se bajó en esta ronda. No puede volver a bajarse")
+                return None
+            #Si la seguidilla armada no coincide con el orden de alguna seguidilla válida, no se puede bajar
+            elif not any(straight == visualStraight for straight in availableStraights):
+                print("La seguidilla organizada no coincide con alguna seguidilla válida")
+                return None
+            #Si hay más de un joker en el trío, no se puede bajar
+            elif jokersInTrio > 1:
+                print("El trío organizado tiene más de un Joker. No es válido")
+                return None
+            #Analizamos el trío armado y, si tiene alguna carta que no corresponda con algún trío válido,
+            #no podrá bajarse (para el trío no importa el orden en que se coloquen las cartas)
+            for card in visualTrio:
+                if not any(card in trio for trio in availableTrios):
+                    print("El trío organizado no coincide con el trío válido")
+                    return None
             else:
-                if len(prepareTrio) >= 3 and len(prepareStraight) >= 4 and len(chosenCards) >= 7 and any(prepareStraight == straight for straight in availableStraights):
+                #Analizamos, si el trío tiene al menos 3 cartas, la seguidilla tiene al menos 4 cartas,
+                #Y a la vez se han seleccionado al menos 7 cartas entre el trío y la seguidilla, el jugador
+                #SI Se podrá bajar
+                if len(prepareTrio) >= 3 and len(prepareStraight) >= 4 and len(chosenCards) >= 7 and self.isHand:
+                    #La jugada se guardará en playMade.
+                    #NOTA: playMade es un array dividido en 2 renglones: organiza los tríos en el primer renglón ["trios"]
+                    #y las seguidillas en el segundo ["straight"]
                     self.playMade.append({"trio": prepareTrio, "straight": prepareStraight})
+                    #Eliminamos las cartas de los espacios visuales, para que desaparezcan al pulsar el botón de bajarse
                     for card in prepareTrio:
-                        self.playerHand.remove(card)
+                        visualTrio.remove(card)
                     for card in prepareStraight:
-                        self.playerHand.remove(card)
+                        visualStraight.remove(card)
+                    #El booleano que indica si se bajó, cambia a True
                     self.downHand = True
                     print(f"El jugador {self.playerName} se bajó con: \n     Trío -> {[str(c) for c in prepareTrio]}\n     Seguidilla -> {[str(c) for c in prepareStraight]}")
+                    print(f"Trio guardado: {[str(c) for c in prepareTrio]}")
+                    print(f"Seguidilla guardada: {[str(c) for c in prepareStraight]}")
                     return prepareTrio, prepareStraight
 
-
+        #Por último, si la jugada tiene menos de 7 cartas, claramente el jugador no puede bajarse
         elif len(chosenCards) < 7:
             print(f"Se han seleccionado {len(chosenCards)} cartas, no son suficientes aún.")
+            return None
 
     def findTrios(self):
         trios = []  #Esta lista va a almacenar todos los tríos posibles en la mano del jugador
@@ -218,11 +252,10 @@ class Player:
 
                     # Restricción: máximo 1 Joker por trío
                     if jokerCount <= 1:
-                        # Evitar duplicados
                         sortedCombo = sorted(combination, key=lambda c: (c.joker, c.value, c.type))
+
                         if sortedCombo not in trios:
                             trios.append(sortedCombo)
-
         return trios
 
     
@@ -380,11 +413,12 @@ class Player:
                         currentSequence = [curr]
 
                 #Al terminar el palo, procesamos la última secuencia
-                if len(currentSequence) >= 3:
+                if len(currentSequence) >= 3 and currentSequence not in straights:
                     straights.append(currentSequence)
                     remainingJokers = jokers[:]
                     for v in expandWithJokers(currentSequence, remainingJokers, highMode):
-                        straights.append(v)
+                        if v not in straights:
+                            straights.append(v)
                 for s in straights: #Con esto, construimos secuencias alternas
                     #Se utilizará para construir seguidillas heredadas de algunas seguidillas mayores
                     #Ejemplo: Si nuestra seguidilla tiene 5 cartas, de allí podremos construir seguidillas de 4 cartas
@@ -604,3 +638,39 @@ class Player:
     # jugadores.
     def passCard(self):
         self.playerPass = not self.playerPass
+
+    def buyCard(self, round):
+        """Este método debe recibir como parámetro el objeto de la ronda actual.
+        Eso se hará desde el ciclo principal del juego.
+        Este método se utilizará en el botón de comprar carta, que solo se mostrará
+        cuando isHand es False"""
+        discardedCard = round.discards.pop()
+        #Si el jugador decidió comprar la carta del descarte, se le entrega dicha carta y además se le da una del mazo como castigo
+        if self.playerBuy and not self.isHand:
+            self.playerHand.append(discardedCard)
+            drawCard(self.playerName, round, False, None)
+            self.playerBuy = False
+            print(f"El jugador {self.playerName} compró la carta {discardedCard} y recibió una carta del mazo como castigo")
+        else:
+            print(f"El jugador {self.playerName} no compró la carta del descarte")
+            return 0
+        
+    def calculatePoints(self):
+        """Esto añade los puntos al jugador. Se debe llamar este método al finalizar cada ronda.
+        Los puntos van de la siguiente manera:
+        -Cartas del 2 al 9: 5 puntos cada una
+        -Cartas 10, J, Q, K: 10 puntos cada una
+        -Cartas de Ases: 20 puntos
+        -Cartas Joker: 25 puntos"""
+        totalPoints = 0
+        for card in self.playerHand:
+            if card.joker:
+                totalPoints += 25
+            elif card.value in ["K", "Q", "J", "10"]:
+                totalPoints += 10
+            elif card.value == "A":
+                totalPoints += 20
+            else:
+                totalPoints += 5
+        self.points = totalPoints
+        return totalPoints
