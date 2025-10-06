@@ -8,7 +8,7 @@ class Player:
     def __init__(self, id, name):
         self.playerId = id
         self.playerName = name
-        self.playerPoints = 0
+        self.playerPoints = 0 #Nos contiene los puntos del jugador a lo largo de la partida
         self.isHand = False #Esto nos indica si el jugador es mano o no, o en otras palabras, si está en turno
         self.playerTurn = False #Este turno se utilizará para determinar si el jugador está en su turno para comprar la carta
         self.playerHand = [] #Lista que contendrá las cartas del jugador.
@@ -19,8 +19,8 @@ class Player:
         self.downHand = False #Este atributo nos indica si el jugador ya se bajó o no, mostrando True o False respectivamente
         self.playerBuy = False #Este atributo nos indica si el jugador decidió comprar la carta o no
         self.playerPass = False #Atrib. experimental, para saber si el jugador en turno pasó de la carta descartada.
-        self.points = 0 #Aquí se guardarán los puntos del jugador
         self.winner = False #Nos permitirá saber si el jugador fue el ganador
+        self.cardDrawn = False #Nos permitirá saber si el jugador tomó una carta en su turno (definido por isHand)
 
     # Mét. para permitir que el jugador seleccione cartas para jugar.
     def chooseCard(self, clickPos):
@@ -73,39 +73,62 @@ class Player:
         
     #Mét. para descartar una carta de la playerHand del jugador. Sólo se ejecuta si el jugador tiene una única
     #carta seleccionada previamente.
-    def discardCard(self):
+    def discardCard(self, selectedDiscards, round):
 
         #Verificamos la cantidad de cartas seleccionadas.
-        if len(self.playerCardsSelect) == 2:
+        if len(selectedDiscards) == 2 and self.isHand:
 
-            #Si seleccionó dos y la primera es un Joker, se retorna una lista con ambas cartas.
-            if self.playerCardsSelect[0].joker:
+            #Si seleccionaron dos y la primera es un Joker, se retorna una lista con ambas cartas.
+            if selectedDiscards[0].joker:
 
-                cardDiscarted = self.playerCardsSelect.pop()
-                jokerDiscarted = self.playerCardsSelect.pop()
+                cardDiscarted = selectedDiscards[1]
+                jokerDiscarted = selectedDiscards[0]
                 self.playerHand.remove(cardDiscarted)
                 self.playerHand.remove(jokerDiscarted)
+                selectedDiscards.remove(cardDiscarted)
+                selectedDiscards.remove(jokerDiscarted)
+                selectedDiscards = []
+                round.discards.append(jokerDiscarted)
+                round.discards.append(cardDiscarted)
+                self.isHand = False
 
                 return [jokerDiscarted, cardDiscarted]
             #Si seleccionó dos y la segunda es un Joker, volvemos a retornar ambas cartas.
-            elif self.playerCardsSelect[1].joker:
+            elif selectedDiscards[1].joker:
 
-                jokerDiscarted = self.playerCardsSelect.pop()
-                cardDiscarted = self.playerCardsSelect.pop()
+                jokerDiscarted = selectedDiscards[1]
+                cardDiscarted = selectedDiscards[0]
                 self.playerHand.remove(jokerDiscarted)
                 self.playerHand.remove(cardDiscarted)
+                selectedDiscards.remove(cardDiscarted)
+                selectedDiscards.remove(jokerDiscarted)
+                selectedDiscards = []
+                round.discards.append(jokerDiscarted)
+                round.discards.append(cardDiscarted)
+                self.isHand = False
 
                 return [cardDiscarted, jokerDiscarted]
         #Si el jugador sólo seleccionó una carta para descartar, retornamos dicha carta.
-        elif len(self.playerCardsSelect) == 1:
+        elif len(selectedDiscards) == 1 and not selectedDiscards[0].joker and self.isHand:
 
-            cardDiscarted = self.playerCardsSelect.pop()
+            cardDiscarted = selectedDiscards[0]
             self.playerHand.remove(cardDiscarted)
+            round.discards.append(cardDiscarted)
+            selectedDiscards.remove(cardDiscarted)
+            selectedDiscards = []
             self.isHand = False
 
             return [cardDiscarted]
         #Si el jugador no seleccionó ninguna carta, retornamos None.
         else:
+            if len(selectedDiscards) == 0:
+                print("No se ha seleccionado ninguna carta en la zona de descartes")
+            elif len(selectedDiscards) == 2 and (not any(c.joker for c in selectedDiscards) or all(c.joker for c in selectedDiscards)):
+                print("Solo puedes bajar 2 cartas si *una* de ellas es un Joker")
+            elif not self.isHand:
+                print("El jugador no puede descartar porque ya no es su turno")
+            elif not self.cardDrawn:
+                print("El jugador debe tomar una carta antes de hacer cualquier jugada")
             return None
     
     def canGetOff(self):
@@ -185,6 +208,8 @@ class Player:
             elif jokersInTrio > 1:
                 print("El trío organizado tiene más de un Joker. No es válido")
                 return None
+            elif not self.cardDrawn:
+                print("El jugador debe tomar una carta antes de hacer cualquier jugada")
             #Analizamos el trío armado y, si tiene alguna carta que no corresponda con algún trío válido,
             #no podrá bajarse (para el trío no importa el orden en que se coloquen las cartas)
             for card in visualTrio:
@@ -203,8 +228,10 @@ class Player:
                     #Eliminamos las cartas de los espacios visuales, para que desaparezcan al pulsar el botón de bajarse
                     for card in prepareTrio:
                         visualTrio.remove(card)
+                        self.playerHand.remove(card)
                     for card in prepareStraight:
                         visualStraight.remove(card)
+                        self.playerHand.remove(card)
                     #El booleano que indica si se bajó, cambia a True
                     self.downHand = True
                     print(f"El jugador {self.playerName} se bajó con: \n     Trío -> {[str(c) for c in prepareTrio]}\n     Seguidilla -> {[str(c) for c in prepareStraight]}")
@@ -672,5 +699,5 @@ class Player:
                 totalPoints += 20
             else:
                 totalPoints += 5
-        self.points = totalPoints
+        self.playerPoints += totalPoints
         return totalPoints
